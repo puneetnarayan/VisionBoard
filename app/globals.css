@@ -5,3 +5,19 @@
 .slot-pill.done{background:#e9f3ea;color:#2f5a3a}
 .calendar-link{border:1px solid #d2cbc3;background:#fff8f2;color:#5e5147;border-radius:12px;padding:11px 13px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap}
 .calendar-link:hover{background:#f6ebe2}
+
+.weekly{margin-top:10px;padding:9px 10px;background:#ffffffb8;border:1px solid #00000012;border-radius:12px}
+.weekly-head{display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:6px}
+.weekly-head span{color:#77706a}
+.weekly ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.weekly li{display:flex;align-items:center;gap:7px;font-size:12px}
+.weekly li.done .weekly-text{text-decoration:line-through;color:#8a837b}
+.weekly-text{flex:1;min-width:0;overflow-wrap:anywhere}
+.weekly li button{border:0;background:transparent;color:#8a837b;font-size:12px;cursor:pointer;padding:2px 4px}
+.weekly li button:hover{color:#292725}
+.weekly input[type=text],.weekly-edit,.weekly-add input{font:inherit;font-size:12px;border:1px solid #d2cbc3;border-radius:8px;padding:5px 8px;background:#fff;min-width:0}
+.weekly-edit{flex:1}
+.weekly-add{display:flex;gap:6px;margin-top:6px}
+.weekly-add input{flex:1}
+.weekly-add button{border:1px solid #d2cbc3;background:#fff8f2;color:#5e5147;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer}
+.weekly-add button:disabled{opacity:.5;cursor:default}

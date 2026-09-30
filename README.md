@@ -11,6 +11,7 @@ A compact personal vision board built with Next.js, designed for Vercel.
 - Sound ON by default with mute/unmute control
 - "I Saw My Vision Board" tracker: 3 fixed daily slots (morning 5am-12pm, afternoon 12-5pm, evening 5pm-5am)
 - Calendar view (/calendar) with Day, Week, Month and Year views
+- Weekly actions per life area: up to 3 editable, checkable actions per area each week (Mon–Sun), stored in `public.vision_board_actions`
 - LocalStorage fallback
 - Supabase cloud tracking when environment variables are configured
 

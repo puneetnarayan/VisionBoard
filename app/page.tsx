@@ -3,6 +3,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
+import WeeklyActions from "./WeeklyActions";
+import { loadActions, loadLocalActions, newActionId, removeAction, saveLocalActions, syncAction, weekKey, type Action } from "../lib/actions";
 import { DAILY_TARGET, SLOTS, completeStreak, dateKey, groupByDate, loadLocalViews, loadViews, recordView, slotFor, timeLabel, type View } from "../lib/views";
 
 const visions = [
@@ -16,6 +18,7 @@ const visions = [
 export default function Home(){
  const [views,setViews]=useState<View[]>([]),[message,setMessage]=useState("");
  const [muted,setMuted]=useState(false),[soundStarted,setSoundStarted]=useState(false),[soundBlocked,setSoundBlocked]=useState(false),[syncing,setSyncing]=useState(false);
+ const [actions,setActions]=useState<Action[]>([]);
  const audioContextRef=useRef<AudioContext|null>(null),gainRef=useRef<GainNode|null>(null),timerRef=useRef<number|null>(null);
 
  const startOm=async()=>{
@@ -52,6 +55,8 @@ export default function Home(){
  useEffect(()=>{
    let active=true;
    setViews(loadLocalViews());
+   setActions(loadLocalActions());
+   loadActions().then(a=>{if(active)setActions(a)}).catch(()=>{});
    loadViews().then(v=>{if(active)setViews(v)}).catch(()=>{});
    const attempt=window.setTimeout(()=>{void startOm()},150);
    const onGesture=()=>{void startOm()};
@@ -73,6 +78,18 @@ export default function Home(){
  const streak=useMemo(()=>completeStreak(byDate),[byDate]);
  const currentSlotLabel=SLOTS.find(s=>s.id===currentSlot)!.label.toLowerCase();
 
+ const thisWeek=weekKey(now);
+ const weekActions=actions.filter(a=>a.week===thisWeek);
+ const weekDone=weekActions.filter(a=>a.done).length;
+ function updateActions(next:Action[],changed?:Action,removedId?:string){
+   setActions(next);saveLocalActions(next);
+   const ok=changed?syncAction(changed):removedId?removeAction(removedId):Promise.resolve(true);
+   void ok.then(good=>{if(!good){setMessage("Saved locally; cloud sync unavailable");window.setTimeout(()=>setMessage(""),2600)}});
+ }
+ const addAction=(area:string,text:string)=>{const a:Action={id:newActionId(),area,week:thisWeek,text,done:false};updateActions([...actions,a],a)};
+ const patchAction=(id:string,patch:Partial<Action>)=>{const next=actions.map(a=>a.id===id?{...a,...patch}:a);updateActions(next,next.find(a=>a.id===id))};
+ const deleteAction=(id:string)=>updateActions(actions.filter(a=>a.id!==id),undefined,id);
+
  async function markViewed(){
    if(viewedSlot){setMessage(`Already recorded for this ${currentSlotLabel} ✓`);window.setTimeout(()=>setMessage(""),2200);return}
    setSyncing(true);setMessage("Vision viewed ✓");
@@ -89,9 +106,9 @@ export default function Home(){
    <div className="header-actions"><button className={"sound-button "+(muted?"muted":"")} onClick={(e)=>{e.stopPropagation();setMuted(x=>!x);if(muted)void startOm()}} aria-label={muted?"Unmute OM chanting":"Mute OM chanting"}>{muted?"🔇":"🔊"} {muted?"Unmute OM":"Mute OM"}</button><div className="datebox"><strong>{new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</strong><small>{todayViews.length>=DAILY_TARGET?"✓ All 3 views done":`${todayViews.length}/${DAILY_TARGET} views today`}</small></div></div>
   </header>
 
-  <section className="hero"><div><p className="hero-kicker">ॐ • MY LIFE • MY DIRECTION</p><h2>Keep the important things<br/><em>in front of you.</em></h2><p className="hero-copy">A quiet place to see where you are going — especially the career growth and experiences you want to share with your wife.</p></div><div className="stats"><div><b>{todayViews.length}/{DAILY_TARGET}</b><span>views today</span></div><div><b>{streak}</b><span>days with 3/3 streak</span></div><div><b>{monthViews}</b><span>views this month</span></div><div><b>{views.length}</b><span>total views</span></div></div></section>
+  <section className="hero"><div><p className="hero-kicker">ॐ • MY LIFE • MY DIRECTION</p><h2>Keep the important things<br/><em>in front of you.</em></h2><p className="hero-copy">A quiet place to see where you are going — especially the career growth and experiences you want to share with your wife.</p></div><div className="stats"><div><b>{todayViews.length}/{DAILY_TARGET}</b><span>views today</span></div><div><b>{streak}</b><span>days with 3/3 streak</span></div><div><b>{monthViews}</b><span>views this month</span></div><div><b>{weekDone}/{weekActions.length}</b><span>actions this week</span></div><div><b>{views.length}</b><span>total views</span></div></div></section>
 
-  <section className="board">{visions.map((v,i)=><article key={v.id} className={"vision "+v.tone+" "+(i<2?"priority":"")}><div className="vision-label">{v.icon} {i<2?"PRIORITY":"LIFE AREA"} {i+1}</div><div className="vision-visual"><span>{v.visual}</span><small>{v.visualText}</small></div><h3>{v.title}</h3><p>{v.statement}</p><div className="cards">{v.cards.map(([title,icon,text])=><div className="mini-card" key={title}><div className="mini-icon">{icon}</div><div><strong>{title}</strong><span>{text}</span></div></div>)}</div></article>)}</section>
+  <section className="board">{visions.map((v,i)=><article key={v.id} className={"vision "+v.tone+" "+(i<2?"priority":"")}><div className="vision-label">{v.icon} {i<2?"PRIORITY":"LIFE AREA"} {i+1}</div><div className="vision-visual"><span>{v.visual}</span><small>{v.visualText}</small></div><h3>{v.title}</h3><p>{v.statement}</p><div className="cards">{v.cards.map(([title,icon,text])=><div className="mini-card" key={title}><div className="mini-icon">{icon}</div><div><strong>{title}</strong><span>{text}</span></div></div>)}</div><WeeklyActions actions={weekActions.filter(a=>a.area===v.id)} onAdd={t=>addAction(v.id,t)} onToggle={id=>patchAction(id,{done:!actions.find(a=>a.id===id)!.done})} onEdit={(id,t)=>patchAction(id,{text:t})} onDelete={deleteAction}/></article>)}</section>
 
   <section className="view-panel"><div className="view-copy"><div className="view-icon">👁</div><div><h3>Take a moment</h3><p>Look through your board, then mark your {currentSlotLabel} viewing.</p><div className="slot-row">{SLOTS.map(sl=>{const v=todayViews.find(x=>x.slot===sl.id);return <span key={sl.id} className={"slot-pill "+(v?"done":"")+(sl.id===currentSlot?" now":"")}>{sl.icon} {sl.label}{v?` ✓ ${timeLabel(v.at)}`:""}</span>})}</div></div></div><div className="view-actions"><span className={"sound-status "+(soundStarted&&!muted?"on":"off")}>{soundStarted&&!muted?"● OM chanting ON":muted?"○ OM muted":"○ OM ready"}</span><Link className="calendar-link" href="/calendar">📅 Calendar</Link><button onClick={markViewed} disabled={syncing}>{syncing?"Saving…":viewedSlot?`✓ ${SLOTS.find(s=>s.id===currentSlot)!.label} done`:"I Saw My Vision Board"}</button></div>{message&&<div className="toast">{message}</div>}</section>
   {soundBlocked&&!soundStarted&&<div className="sound-hint">🔊 Tap anywhere on the board once to start the continuous OM chanting. Your default is sound ON.</div>}
