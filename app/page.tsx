@@ -1,7 +1,9 @@
 'use client';
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../lib/supabase";
+import { DAILY_TARGET, SLOTS, completeStreak, dateKey, groupByDate, loadLocalViews, loadViews, recordView, slotFor, timeLabel, type View } from "../lib/views";
 
 const visions = [
  {id:"promotion",title:"Promotion & Career",icon:"🚀",tone:"peach",visual:"🚀",visualText:"Leadership • Impact • Recognition",statement:"I am recognised for my experience, leadership, expertise and the value I create.",cards:[["Recognition","🏆","Be known for meaningful results and leadership."],["Leadership","👔","Lead important work with confidence and clarity."],["Innovation","💡","Turn experience into ideas, improvements and impact."],["Growth","📈","Keep growing professionally and financially."]]},
@@ -11,25 +13,8 @@ const visions = [
  {id:"family",title:"Family & Happiness",icon:"🌼",tone:"yellow",visual:"☀️",visualText:"Together • Memories • Joy",statement:"Make time for people, experiences and moments that matter.",cards:[["Together","👨‍👩‍👧","Create more shared memories."],["Joy","☀️","Notice and enjoy the good things."]]}
 ];
 
-function todayKey(){
- const d=new Date();
- return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
-}
-function loadViews(){
- try{return JSON.parse(localStorage.getItem("visionboard_views")||"[]")}catch{return []}
-}
-function visitorId(){
- const key="visionboard_visitor_id";
- try{
-   let id=localStorage.getItem(key);
-   if(!id){id=typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():`vb-${Date.now()}-${Math.random().toString(36).slice(2)}`;localStorage.setItem(key,id)}
-   return id;
- }catch{return "anonymous-browser"}
-}
-function mergeDates(a:string[],b:string[]){return Array.from(new Set([...a,...b])).sort()}
-
 export default function Home(){
- const [views,setViews]=useState<string[]>([]),[message,setMessage]=useState("");
+ const [views,setViews]=useState<View[]>([]),[message,setMessage]=useState("");
  const [muted,setMuted]=useState(false),[soundStarted,setSoundStarted]=useState(false),[soundBlocked,setSoundBlocked]=useState(false),[syncing,setSyncing]=useState(false);
  const audioContextRef=useRef<AudioContext|null>(null),gainRef=useRef<GainNode|null>(null),timerRef=useRef<number|null>(null);
 
@@ -66,19 +51,8 @@ export default function Home(){
 
  useEffect(()=>{
    let active=true;
-   const local=loadViews();setViews(local);
-   const loadCloud=async()=>{
-     if(!supabase)return;
-     const id=visitorId();
-     const {data,error}=await supabase.from("vision_board_views").select("view_date").eq("visitor_id",id).order("view_date",{ascending:true});
-     if(active&&!error&&data){
-       const cloud=data.map(row=>row.view_date);
-       const merged=mergeDates(local,cloud);
-       setViews(merged);
-       localStorage.setItem("visionboard_views",JSON.stringify(merged));
-     }
-   };
-   loadCloud();
+   setViews(loadLocalViews());
+   loadViews().then(v=>{if(active)setViews(v)}).catch(()=>{});
    const attempt=window.setTimeout(()=>{void startOm()},150);
    const onGesture=()=>{void startOm()};
    window.addEventListener("pointerdown",onGesture,{once:true});
@@ -92,20 +66,19 @@ export default function Home(){
    }
  },[muted]);
 
- const today=todayKey(),viewedToday=views.includes(today),monthPrefix=today.slice(0,7);
- const monthViews=useMemo(()=>views.filter(v=>v.startsWith(monthPrefix)).length,[views,monthPrefix]);
- const streak=useMemo(()=>{let d=new Date(),s=0,set=new Set(views);while(set.has(todayKeyFromDate(d))){s++;d.setDate(d.getDate()-1)}return s},[views]);
- function todayKeyFromDate(d:Date){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")}
+ const now=new Date(),today=dateKey(now),currentSlot=slotFor(now),monthPrefix=today.slice(0,7);
+ const byDate=useMemo(()=>groupByDate(views),[views]);
+ const todayViews=byDate.get(today)||[],viewedSlot=todayViews.some(v=>v.slot===currentSlot);
+ const monthViews=useMemo(()=>views.filter(v=>v.date.startsWith(monthPrefix)).length,[views,monthPrefix]);
+ const streak=useMemo(()=>completeStreak(byDate),[byDate]);
+ const currentSlotLabel=SLOTS.find(s=>s.id===currentSlot)!.label.toLowerCase();
 
  async function markViewed(){
-   if(viewedToday){setMessage("Already recorded for today ✓");window.setTimeout(()=>setMessage(""),2200);return}
-   const id=visitorId(),date=today;
-   const next=mergeDates(views,[date]);
-   setViews(next);localStorage.setItem("visionboard_views",JSON.stringify(next));setSyncing(true);setMessage("Vision viewed ✓");
-   if(supabase){
-     const {error}=await supabase.from("vision_board_views").upsert({visitor_id:id,view_date:date,viewed_at:new Date().toISOString()},{onConflict:"visitor_id,view_date",ignoreDuplicates:true});
-     if(error)setMessage("Vision viewed ✓ • saved locally; cloud sync unavailable");
-   }
+   if(viewedSlot){setMessage(`Already recorded for this ${currentSlotLabel} ✓`);window.setTimeout(()=>setMessage(""),2200);return}
+   setSyncing(true);setMessage("Vision viewed ✓");
+   const {views:next,cloudOk}=await recordView(views,{date:today,slot:currentSlot,at:new Date().toISOString()});
+   setViews(next);
+   if(supabase&&!cloudOk)setMessage("Vision viewed ✓ • saved locally; cloud sync unavailable");
    setSyncing(false);
    window.setTimeout(()=>setMessage(""),2600);
  }
@@ -113,14 +86,14 @@ export default function Home(){
  return <main className="page" onClick={()=>{if(!soundStarted)void startOm()}}>
   <header className="topbar">
    <div className="brand"><Image src="/om.svg" alt="Om" width={62} height={62} priority/><div><div className="eyebrow">PERSONAL VISION BOARD</div><h1>See it. Feel it. <span>Work towards it.</span></h1></div></div>
-   <div className="header-actions"><button className={"sound-button "+(muted?"muted":"")} onClick={(e)=>{e.stopPropagation();setMuted(x=>!x);if(muted)void startOm()}} aria-label={muted?"Unmute OM chanting":"Mute OM chanting"}>{muted?"🔇":"🔊"} {muted?"Unmute OM":"Mute OM"}</button><div className="datebox"><strong>{new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</strong><small>{viewedToday?"✓ Viewed today":"Ready for today's vision"}</small></div></div>
+   <div className="header-actions"><button className={"sound-button "+(muted?"muted":"")} onClick={(e)=>{e.stopPropagation();setMuted(x=>!x);if(muted)void startOm()}} aria-label={muted?"Unmute OM chanting":"Mute OM chanting"}>{muted?"🔇":"🔊"} {muted?"Unmute OM":"Mute OM"}</button><div className="datebox"><strong>{new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</strong><small>{todayViews.length>=DAILY_TARGET?"✓ All 3 views done":`${todayViews.length}/${DAILY_TARGET} views today`}</small></div></div>
   </header>
 
-  <section className="hero"><div><p className="hero-kicker">ॐ • MY LIFE • MY DIRECTION</p><h2>Keep the important things<br/><em>in front of you.</em></h2><p className="hero-copy">A quiet place to see where you are going — especially the career growth and experiences you want to share with your wife.</p></div><div className="stats"><div><b>{streak}</b><span>day streak</span></div><div><b>{monthViews}</b><span>views this month</span></div><div><b>{views.length}</b><span>total views</span></div></div></section>
+  <section className="hero"><div><p className="hero-kicker">ॐ • MY LIFE • MY DIRECTION</p><h2>Keep the important things<br/><em>in front of you.</em></h2><p className="hero-copy">A quiet place to see where you are going — especially the career growth and experiences you want to share with your wife.</p></div><div className="stats"><div><b>{todayViews.length}/{DAILY_TARGET}</b><span>views today</span></div><div><b>{streak}</b><span>days with 3/3 streak</span></div><div><b>{monthViews}</b><span>views this month</span></div><div><b>{views.length}</b><span>total views</span></div></div></section>
 
   <section className="board">{visions.map((v,i)=><article key={v.id} className={"vision "+v.tone+" "+(i<2?"priority":"")}><div className="vision-label">{v.icon} {i<2?"PRIORITY":"LIFE AREA"} {i+1}</div><div className="vision-visual"><span>{v.visual}</span><small>{v.visualText}</small></div><h3>{v.title}</h3><p>{v.statement}</p><div className="cards">{v.cards.map(([title,icon,text])=><div className="mini-card" key={title}><div className="mini-icon">{icon}</div><div><strong>{title}</strong><span>{text}</span></div></div>)}</div></article>)}</section>
 
-  <section className="view-panel"><div className="view-copy"><div className="view-icon">👁</div><div><h3>Take a moment</h3><p>Look through your board, then mark today's viewing.</p></div></div><div className="view-actions"><span className={"sound-status "+(soundStarted&&!muted?"on":"off")}>{soundStarted&&!muted?"● OM chanting ON":muted?"○ OM muted":"○ OM ready"}</span><button onClick={markViewed} disabled={syncing}>{syncing?"Saving…":viewedToday?"✓ Viewed Today":"I Saw My Vision Board"}</button></div>{message&&<div className="toast">{message}</div>}</section>
+  <section className="view-panel"><div className="view-copy"><div className="view-icon">👁</div><div><h3>Take a moment</h3><p>Look through your board, then mark your {currentSlotLabel} viewing.</p><div className="slot-row">{SLOTS.map(sl=>{const v=todayViews.find(x=>x.slot===sl.id);return <span key={sl.id} className={"slot-pill "+(v?"done":"")+(sl.id===currentSlot?" now":"")}>{sl.icon} {sl.label}{v?` ✓ ${timeLabel(v.at)}`:""}</span>})}</div></div></div><div className="view-actions"><span className={"sound-status "+(soundStarted&&!muted?"on":"off")}>{soundStarted&&!muted?"● OM chanting ON":muted?"○ OM muted":"○ OM ready"}</span><Link className="calendar-link" href="/calendar">📅 Calendar</Link><button onClick={markViewed} disabled={syncing}>{syncing?"Saving…":viewedSlot?`✓ ${SLOTS.find(s=>s.id===currentSlot)!.label} done`:"I Saw My Vision Board"}</button></div>{message&&<div className="toast">{message}</div>}</section>
   {soundBlocked&&!soundStarted&&<div className="sound-hint">🔊 Tap anywhere on the board once to start the continuous OM chanting. Your default is sound ON.</div>}
   <footer><span>ॐ MY VISION BOARD</span><span>{supabase?"Cloud tracking enabled • Supabase":"Local tracking only • add Supabase environment variables"}</span><span>Small daily attention • Long-term direction</span></footer>
  </main>
