@@ -1,7 +1,9 @@
 import { supabase } from "./supabase";
+import { getVisitorId } from "./identity";
 
 export type Slot = "morning" | "afternoon" | "evening";
-export type View = { date: string; slot: Slot; at: string };
+// `synced` is in-memory only: true once the cloud has confirmed this view.
+export type View = { date: string; slot: Slot; at: string; synced?: boolean };
 
 export const SLOTS: { id: Slot; label: string; icon: string; hours: string }[] = [
   { id: "morning", label: "Morning", icon: "🌅", hours: "5 am – 12 pm" },
@@ -12,7 +14,6 @@ export const DAILY_TARGET = SLOTS.length;
 
 const LOCAL_KEY = "visionboard_views_v2";
 const LEGACY_KEY = "visionboard_views";
-const VISITOR_KEY = "visionboard_visitor_id";
 
 export function dateKey(d: Date) {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
@@ -34,18 +35,7 @@ export function timeLabel(iso: string) {
   return new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
-export function visitorId() {
-  try {
-    let id = localStorage.getItem(VISITOR_KEY);
-    if (!id) {
-      id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `vb-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      localStorage.setItem(VISITOR_KEY, id);
-    }
-    return id;
-  } catch {
-    return "anonymous-browser";
-  }
-}
+export const visitorId = getVisitorId;
 
 const keyOf = (v: View) => `${v.date}|${v.slot}`;
 
@@ -71,7 +61,7 @@ function readLocal(): View[] {
 
 function writeLocal(views: View[]) {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(views));
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(views.map(({ date, slot, at }) => ({ date, slot, at }))));
   } catch {}
 }
 
@@ -90,26 +80,29 @@ export async function loadViews(): Promise<View[]> {
   const id = visitorId();
   const { data, error } = await supabase.from("vision_board_views").select("view_date,slot,viewed_at").eq("visitor_id", id);
   if (error || !data) return local;
-  const cloud: View[] = data.map((r) => ({ date: r.view_date, slot: r.slot as Slot, at: r.viewed_at }));
+  const cloud: View[] = data.map((r) => ({ date: r.view_date, slot: r.slot as Slot, at: r.viewed_at, synced: true }));
   const merged = mergeViews(cloud, local);
   writeLocal(merged);
   const cloudKeys = new Set(cloud.map(keyOf));
   const missing = merged.filter((v) => !cloudKeys.has(keyOf(v)));
   if (missing.length) {
-    await supabase
+    const { error: pushError } = await supabase
       .from("vision_board_views")
       .upsert(missing.map((v) => toRow(id, v)), { onConflict: "visitor_id,view_date,slot", ignoreDuplicates: true });
+    if (!pushError) missing.forEach((v) => (v.synced = true));
   }
   return merged;
 }
 
 export async function recordView(existing: View[], view: View): Promise<{ views: View[]; cloudOk: boolean }> {
   const views = mergeViews(existing, [view]);
+  const saved = views.find((v) => keyOf(v) === keyOf(view))!;
   writeLocal(views);
   if (!supabase) return { views, cloudOk: false };
   const { error } = await supabase
     .from("vision_board_views")
     .upsert(toRow(visitorId(), view), { onConflict: "visitor_id,view_date,slot", ignoreDuplicates: true });
+  if (!error) saved.synced = true;
   return { views, cloudOk: !error };
 }
 

@@ -83,6 +83,8 @@ export default function CalendarPage() {
   const [views, setViews] = useState<View[]>([]);
   const [mode, setMode] = useState<Mode>("month");
   const [anchor, setAnchor] = useState<Date>(() => new Date());
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     let active = true;
@@ -113,6 +115,8 @@ export default function CalendarPage() {
   });
   const completeDays = Array.from(groupByDate(rangeViews).values()).filter((l) => l.length >= DAILY_TARGET).length;
 
+  if (!mounted) return <main className="page cal-page" aria-busy="true" />;
+
   return (
     <main className="page cal-page">
       <header className="cal-head">
@@ -142,7 +146,7 @@ export default function CalendarPage() {
               <div key={s.id} className={"day-slot " + (v ? "done" : "")}>
                 <span className="day-slot-icon">{s.icon}</span>
                 <div><strong>{s.label}</strong><small>{s.hours}</small></div>
-                <span className="day-slot-status">{v ? `✓ ${timeLabel(v.at)}` : "Not yet"}</span>
+                <span className="day-slot-status">{v ? `✓ ${timeLabel(v.at)} ${v.synced ? "☁ saved in Supabase" : "• device only"}` : "Not yet"}</span>
               </div>
             );
           })}
@@ -167,7 +171,7 @@ export default function CalendarPage() {
 
       <div className="cal-legend">
         {SLOTS.map((s) => <span key={s.id}>{s.icon} {s.label}</span>)}
-        <span className="legend-note">Coloured = done • faded = not done{mode === "year" ? " • darker square = more views that day" : ""}</span>
+        <span>☁ = confirmed saved in Supabase</span><span className="legend-note">Coloured = done • faded = not done{mode === "year" ? " • darker square = more views that day" : ""}</span>
       </div>
     </main>
   );

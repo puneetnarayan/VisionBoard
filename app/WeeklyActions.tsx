@@ -1,5 +1,6 @@
 'use client';
 import { useState } from "react";
+import { syncLabel } from "../lib/syncLabel";
 import { MAX_ACTIONS_PER_AREA, type Action } from "../lib/actions";
 
 type Props = {
@@ -14,6 +15,7 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const done = actions.filter((a) => a.done).length;
+  const label = syncLabel(actions.every((a) => a.synced));
 
   function submit() {
     const text = draft.trim();
@@ -56,6 +58,7 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
           </li>
         ))}
       </ul>
+      {actions.length > 0 && <div className={"sync-label " + label.state}>{label.text}</div>}
       {actions.length < MAX_ACTIONS_PER_AREA && (
         <div className="weekly-add">
           <input

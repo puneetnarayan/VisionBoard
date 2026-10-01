@@ -21,3 +21,18 @@
 .weekly-add input{flex:1}
 .weekly-add button{border:1px solid #d2cbc3;background:#fff8f2;color:#5e5147;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer}
 .weekly-add button:disabled{opacity:.5;cursor:default}
+
+.sync-label{margin-top:6px;font-size:10px;font-weight:700}
+.sync-label.synced{color:#2f5a3a}
+.sync-label.local{color:#9a5b3c}
+.sync-panel{margin:12px 0;border:1px solid #ddd7d0;border-radius:14px;background:#fff;padding:8px 12px}
+.sync-toggle{border:0;background:transparent;font:inherit;font-size:12px;font-weight:700;color:#5e5147;cursor:pointer;padding:4px 0}
+.sync-body{font-size:12px;color:#5e5147;display:grid;gap:6px;padding-top:6px}
+.sync-body p{margin:0}
+.sync-row{display:flex;gap:6px;flex-wrap:wrap}
+.sync-row code{background:#f6f2ee;border-radius:8px;padding:6px 10px;font-size:13px;letter-spacing:.04em;user-select:all;overflow-wrap:anywhere}
+.sync-row input{flex:1;min-width:200px;font:inherit;font-size:12px;border:1px solid #d2cbc3;border-radius:8px;padding:6px 8px}
+.sync-row button{border:1px solid #d2cbc3;background:#fff8f2;color:#5e5147;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer}
+.sync-row button:disabled{opacity:.5;cursor:default}
+.sync-warn{color:#9a5b3c}
+.sync-note{font-weight:700}

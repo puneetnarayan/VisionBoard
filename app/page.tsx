@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
 import WeeklyActions from "./WeeklyActions";
+import SyncCode from "./SyncCode";
+import { cloudConfigured, syncLabel } from "../lib/syncLabel";
 import { loadActions, loadLocalActions, newActionId, removeAction, saveLocalActions, syncAction, weekKey, type Action } from "../lib/actions";
 import { DAILY_TARGET, SLOTS, completeStreak, dateKey, groupByDate, loadLocalViews, loadViews, recordView, slotFor, timeLabel, type View } from "../lib/views";
 
@@ -71,20 +73,28 @@ export default function Home(){
    }
  },[muted]);
 
- const now=new Date(),today=dateKey(now),currentSlot=slotFor(now),monthPrefix=today.slice(0,7);
+ const [mounted,setMounted]=useState(false);
+ useEffect(()=>setMounted(true),[]);
+ // Time-dependent values are blank until mounted so server HTML and first client render match.
+ const now=new Date(),today=mounted?dateKey(now):"",currentSlot=mounted?slotFor(now):"morning",monthPrefix=mounted?today.slice(0,7):"none";
  const byDate=useMemo(()=>groupByDate(views),[views]);
  const todayViews=byDate.get(today)||[],viewedSlot=todayViews.some(v=>v.slot===currentSlot);
  const monthViews=useMemo(()=>views.filter(v=>v.date.startsWith(monthPrefix)).length,[views,monthPrefix]);
  const streak=useMemo(()=>completeStreak(byDate),[byDate]);
  const currentSlotLabel=SLOTS.find(s=>s.id===currentSlot)!.label.toLowerCase();
 
- const thisWeek=weekKey(now);
+ const thisWeek=mounted?weekKey(now):"";
  const weekActions=actions.filter(a=>a.week===thisWeek);
  const weekDone=weekActions.filter(a=>a.done).length;
  function updateActions(next:Action[],changed?:Action,removedId?:string){
-   setActions(next);saveLocalActions(next);
+   const pending=changed?{...changed,synced:false}:undefined;
+   const list=pending?next.map(a=>a.id===pending.id?pending:a):next;
+   setActions(list);saveLocalActions(list);
    const ok=changed?syncAction(changed):removedId?removeAction(removedId):Promise.resolve(true);
-   void ok.then(good=>{if(!good){setMessage("Saved locally; cloud sync unavailable");window.setTimeout(()=>setMessage(""),2600)}});
+   void ok.then(good=>{
+     if(changed&&good)setActions(cur=>cur.map(a=>a.id===changed.id&&a.text===changed.text&&a.done===changed.done?{...a,synced:true}:a));
+     if(!good&&cloudConfigured){setMessage("Saved on this device only — Supabase did not accept it");window.setTimeout(()=>setMessage(""),3200)}
+   });
  }
  const addAction=(area:string,text:string)=>{const a:Action={id:newActionId(),area,week:thisWeek,text,done:false};updateActions([...actions,a],a)};
  const patchAction=(id:string,patch:Partial<Action>)=>{const next=actions.map(a=>a.id===id?{...a,...patch}:a);updateActions(next,next.find(a=>a.id===id))};
@@ -92,26 +102,27 @@ export default function Home(){
 
  async function markViewed(){
    if(viewedSlot){setMessage(`Already recorded for this ${currentSlotLabel} ✓`);window.setTimeout(()=>setMessage(""),2200);return}
-   setSyncing(true);setMessage("Vision viewed ✓");
+   setSyncing(true);setMessage("Vision viewed ✓ • saving…");
    const {views:next,cloudOk}=await recordView(views,{date:today,slot:currentSlot,at:new Date().toISOString()});
    setViews(next);
-   if(supabase&&!cloudOk)setMessage("Vision viewed ✓ • saved locally; cloud sync unavailable");
+   setMessage(`Vision viewed ✓ • ${syncLabel(cloudOk).text}`);
    setSyncing(false);
-   window.setTimeout(()=>setMessage(""),2600);
+   window.setTimeout(()=>setMessage(""),3600);
  }
 
  return <main className="page" onClick={()=>{if(!soundStarted)void startOm()}}>
   <header className="topbar">
    <div className="brand"><Image src="/om.svg" alt="Om" width={62} height={62} priority/><div><div className="eyebrow">PERSONAL VISION BOARD</div><h1>See it. Feel it. <span>Work towards it.</span></h1></div></div>
-   <div className="header-actions"><button className={"sound-button "+(muted?"muted":"")} onClick={(e)=>{e.stopPropagation();setMuted(x=>!x);if(muted)void startOm()}} aria-label={muted?"Unmute OM chanting":"Mute OM chanting"}>{muted?"🔇":"🔊"} {muted?"Unmute OM":"Mute OM"}</button><div className="datebox"><strong>{new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</strong><small>{todayViews.length>=DAILY_TARGET?"✓ All 3 views done":`${todayViews.length}/${DAILY_TARGET} views today`}</small></div></div>
+   <div className="header-actions"><button className={"sound-button "+(muted?"muted":"")} onClick={(e)=>{e.stopPropagation();setMuted(x=>!x);if(muted)void startOm()}} aria-label={muted?"Unmute OM chanting":"Mute OM chanting"}>{muted?"🔇":"🔊"} {muted?"Unmute OM":"Mute OM"}</button><div className="datebox"><strong>{mounted?now.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}):""}</strong><small>{todayViews.length>=DAILY_TARGET?"✓ All 3 views done":`${todayViews.length}/${DAILY_TARGET} views today`}</small></div></div>
   </header>
 
   <section className="hero"><div><p className="hero-kicker">ॐ • MY LIFE • MY DIRECTION</p><h2>Keep the important things<br/><em>in front of you.</em></h2><p className="hero-copy">A quiet place to see where you are going — especially the career growth and experiences you want to share with your wife.</p></div><div className="stats"><div><b>{todayViews.length}/{DAILY_TARGET}</b><span>views today</span></div><div><b>{streak}</b><span>days with 3/3 streak</span></div><div><b>{monthViews}</b><span>views this month</span></div><div><b>{weekDone}/{weekActions.length}</b><span>actions this week</span></div><div><b>{views.length}</b><span>total views</span></div></div></section>
 
   <section className="board">{visions.map((v,i)=><article key={v.id} className={"vision "+v.tone+" "+(i<2?"priority":"")}><div className="vision-label">{v.icon} {i<2?"PRIORITY":"LIFE AREA"} {i+1}</div><div className="vision-visual"><span>{v.visual}</span><small>{v.visualText}</small></div><h3>{v.title}</h3><p>{v.statement}</p><div className="cards">{v.cards.map(([title,icon,text])=><div className="mini-card" key={title}><div className="mini-icon">{icon}</div><div><strong>{title}</strong><span>{text}</span></div></div>)}</div><WeeklyActions actions={weekActions.filter(a=>a.area===v.id)} onAdd={t=>addAction(v.id,t)} onToggle={id=>patchAction(id,{done:!actions.find(a=>a.id===id)!.done})} onEdit={(id,t)=>patchAction(id,{text:t})} onDelete={deleteAction}/></article>)}</section>
 
-  <section className="view-panel"><div className="view-copy"><div className="view-icon">👁</div><div><h3>Take a moment</h3><p>Look through your board, then mark your {currentSlotLabel} viewing.</p><div className="slot-row">{SLOTS.map(sl=>{const v=todayViews.find(x=>x.slot===sl.id);return <span key={sl.id} className={"slot-pill "+(v?"done":"")+(sl.id===currentSlot?" now":"")}>{sl.icon} {sl.label}{v?` ✓ ${timeLabel(v.at)}`:""}</span>})}</div></div></div><div className="view-actions"><span className={"sound-status "+(soundStarted&&!muted?"on":"off")}>{soundStarted&&!muted?"● OM chanting ON":muted?"○ OM muted":"○ OM ready"}</span><Link className="calendar-link" href="/calendar">📅 Calendar</Link><button onClick={markViewed} disabled={syncing}>{syncing?"Saving…":viewedSlot?`✓ ${SLOTS.find(s=>s.id===currentSlot)!.label} done`:"I Saw My Vision Board"}</button></div>{message&&<div className="toast">{message}</div>}</section>
+  <section className="view-panel"><div className="view-copy"><div className="view-icon">👁</div><div><h3>Take a moment</h3><p>Look through your board, then mark your {currentSlotLabel} viewing.</p><div className="slot-row">{SLOTS.map(sl=>{const v=todayViews.find(x=>x.slot===sl.id);return <span key={sl.id} className={"slot-pill "+(v?"done":"")+(sl.id===currentSlot?" now":"")}>{sl.icon} {sl.label}{v?` ✓ ${timeLabel(v.at)} • ${v.synced?"☁ saved in Supabase":"device only"}`:""}</span>})}</div></div></div><div className="view-actions"><span className={"sound-status "+(soundStarted&&!muted?"on":"off")}>{soundStarted&&!muted?"● OM chanting ON":muted?"○ OM muted":"○ OM ready"}</span><Link className="calendar-link" href="/calendar">📅 Calendar</Link><button onClick={markViewed} disabled={syncing}>{syncing?"Saving…":viewedSlot?`✓ ${SLOTS.find(s=>s.id===currentSlot)!.label} done`:"I Saw My Vision Board"}</button></div>{message&&<div className="toast">{message}</div>}</section>
   {soundBlocked&&!soundStarted&&<div className="sound-hint">🔊 Tap anywhere on the board once to start the continuous OM chanting. Your default is sound ON.</div>}
+  <SyncCode/>
   <footer><span>ॐ MY VISION BOARD</span><span>{supabase?"Cloud tracking enabled • Supabase":"Local tracking only • add Supabase environment variables"}</span><span>Small daily attention • Long-term direction</span></footer>
  </main>
 }
