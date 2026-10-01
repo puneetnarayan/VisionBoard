@@ -1,7 +1,7 @@
 'use client';
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { DAILY_TARGET, SLOTS, dateKey, groupByDate, loadLocalViews, loadViews, timeLabel, type View } from "../../lib/views";
+import { DAILY_TARGET, SLOTS, dateKey, groupByDate, loadLocalViews, loadViews, logicalNow, timeLabel, type View } from "../../lib/views";
 import "./calendar.css";
 
 type Mode = "day" | "week" | "month" | "year";
@@ -82,7 +82,7 @@ function MiniMonth({ year, month, byDate, today }: { year: number; month: number
 export default function CalendarPage() {
   const [views, setViews] = useState<View[]>([]);
   const [mode, setMode] = useState<Mode>("month");
-  const [anchor, setAnchor] = useState<Date>(() => new Date());
+  const [anchor, setAnchor] = useState<Date>(() => logicalNow());
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -94,7 +94,7 @@ export default function CalendarPage() {
   }, []);
 
   const byDate = useMemo(() => groupByDate(views), [views]);
-  const today = dateKey(new Date());
+  const today = dateKey(logicalNow());
 
   function shift(dir: number) {
     setAnchor((a) => (mode === "day" ? addDays(a, dir) : mode === "week" ? addDays(a, 7 * dir) : mode === "month" ? addMonths(a, dir) : new Date(a.getFullYear() + dir, 0, 1)));
@@ -122,7 +122,7 @@ export default function CalendarPage() {
       <header className="cal-head">
         <Link href="/" className="back-link">← Vision board</Link>
         <h1>My viewing calendar</h1>
-        <p>Target: {DAILY_TARGET} views a day — morning, afternoon and evening.</p>
+        <p>Target: {DAILY_TARGET} views a day — morning, afternoon and evening/night. A day runs 3:30 am to 3:30 am, so views between 11 pm and 3:30 am count as that day's evening/night.</p>
       </header>
 
       <section className="cal-toolbar">
@@ -133,7 +133,7 @@ export default function CalendarPage() {
           <button onClick={() => shift(-1)} aria-label="Previous">‹</button>
           <strong>{title}</strong>
           <button onClick={() => shift(1)} aria-label="Next">›</button>
-          <button className="today-btn" onClick={() => setAnchor(new Date())}>Today</button>
+          <button className="today-btn" onClick={() => setAnchor(logicalNow())}>Today</button>
         </div>
         <div className="cal-summary">{rangeViews.length} views • {completeDays} full day{completeDays === 1 ? "" : "s"}</div>
       </section>

@@ -6,9 +6,10 @@ export type Slot = "morning" | "afternoon" | "evening";
 export type View = { date: string; slot: Slot; at: string; synced?: boolean };
 
 export const SLOTS: { id: Slot; label: string; icon: string; hours: string }[] = [
-  { id: "morning", label: "Morning", icon: "🌅", hours: "5 am – 12 pm" },
-  { id: "afternoon", label: "Afternoon", icon: "☀️", hours: "12 pm – 5 pm" },
-  { id: "evening", label: "Evening", icon: "🌙", hours: "5 pm – 5 am" },
+  { id: "morning", label: "Morning", icon: "🌅", hours: "3:30 am – 11 am" },
+  { id: "afternoon", label: "Afternoon", icon: "☀️", hours: "11 am – 5 pm" },
+  // Late views (11 pm – 3:30 am) also count here, as part of the day that is ending.
+  { id: "evening", label: "Evening/Night", icon: "🌙", hours: "5 pm – 11 pm" },
 ];
 export const DAILY_TARGET = SLOTS.length;
 
@@ -24,10 +25,19 @@ export function parseDateKey(key: string) {
   return new Date(y, m - 1, d);
 }
 
+// A "day" runs from 3:30 am to 3:29 am the next morning, so a view at 1 am belongs to the previous day.
+const DAY_START_MINUTES = 3 * 60 + 30;
+
+// The current moment shifted so its calendar date is the app's "day". Use for dates; use the real time for clocks.
+export function logicalNow(): Date {
+  return new Date(Date.now() - DAY_START_MINUTES * 60_000);
+}
+
+// Slot for a real clock time: morning from 3:30 am, afternoon from 11 am, evening/night from 5 pm until the day rolls over.
 export function slotFor(d: Date): Slot {
-  const h = d.getHours();
-  if (h >= 5 && h < 12) return "morning";
-  if (h >= 12 && h < 17) return "afternoon";
+  const minutes = d.getHours() * 60 + d.getMinutes();
+  if (minutes >= DAY_START_MINUTES && minutes < 11 * 60) return "morning";
+  if (minutes >= 11 * 60 && minutes < 17 * 60) return "afternoon";
   return "evening";
 }
 
@@ -114,7 +124,7 @@ export function groupByDate(views: View[]) {
 
 // Consecutive days with all daily slots done. Today doesn't break the streak while it is still in progress.
 export function completeStreak(byDate: Map<string, View[]>) {
-  const d = new Date();
+  const d = logicalNow();
   const isComplete = (day: Date) => (byDate.get(dateKey(day))?.length || 0) >= DAILY_TARGET;
   if (!isComplete(d)) d.setDate(d.getDate() - 1);
   let streak = 0;

@@ -7,7 +7,7 @@ import WeeklyActions from "./WeeklyActions";
 import SyncCode from "./SyncCode";
 import { cloudConfigured, syncLabel } from "../lib/syncLabel";
 import { loadActions, loadLocalActions, newActionId, removeAction, saveLocalActions, syncAction, weekKey, type Action } from "../lib/actions";
-import { DAILY_TARGET, SLOTS, completeStreak, dateKey, groupByDate, loadLocalViews, loadViews, recordView, slotFor, timeLabel, type View } from "../lib/views";
+import { DAILY_TARGET, SLOTS, completeStreak, dateKey, groupByDate, loadLocalViews, loadViews, logicalNow, recordView, slotFor, timeLabel, type View } from "../lib/views";
 
 const visions = [
  {id:"promotion",title:"Promotion & Career",icon:"🚀",tone:"peach",visual:"🚀",visualText:"Leadership • Impact • Recognition",statement:"I am recognised for my experience, leadership, expertise and the value I create.",cards:[["Recognition","🏆","Be known for meaningful results and leadership."],["Leadership","👔","Lead important work with confidence and clarity."],["Innovation","💡","Turn experience into ideas, improvements and impact."],["Growth","📈","Keep growing professionally and financially."]]},
@@ -76,7 +76,7 @@ export default function Home(){
  const [mounted,setMounted]=useState(false);
  useEffect(()=>setMounted(true),[]);
  // Time-dependent values are blank until mounted so server HTML and first client render match.
- const now=new Date(),today=mounted?dateKey(now):"",currentSlot=mounted?slotFor(now):"morning",monthPrefix=mounted?today.slice(0,7):"none";
+ const real=new Date(),now=logicalNow(),today=mounted?dateKey(now):"",currentSlot=mounted?slotFor(real):"morning",monthPrefix=mounted?today.slice(0,7):"none";
  const byDate=useMemo(()=>groupByDate(views),[views]);
  const todayViews=byDate.get(today)||[],viewedSlot=todayViews.some(v=>v.slot===currentSlot);
  const monthViews=useMemo(()=>views.filter(v=>v.date.startsWith(monthPrefix)).length,[views,monthPrefix]);
@@ -120,7 +120,7 @@ export default function Home(){
 
   <section className="board">{visions.map((v,i)=><article key={v.id} className={"vision "+v.tone+" "+(i<2?"priority":"")}><div className="vision-label">{v.icon} {i<2?"PRIORITY":"LIFE AREA"} {i+1}</div><div className="vision-visual"><span>{v.visual}</span><small>{v.visualText}</small></div><h3>{v.title}</h3><p>{v.statement}</p><div className="cards">{v.cards.map(([title,icon,text])=><div className="mini-card" key={title}><div className="mini-icon">{icon}</div><div><strong>{title}</strong><span>{text}</span></div></div>)}</div><WeeklyActions actions={weekActions.filter(a=>a.area===v.id)} onAdd={t=>addAction(v.id,t)} onToggle={id=>patchAction(id,{done:!actions.find(a=>a.id===id)!.done})} onEdit={(id,t)=>patchAction(id,{text:t})} onDelete={deleteAction}/></article>)}</section>
 
-  <section className="view-panel"><div className="view-copy"><div className="view-icon">👁</div><div><h3>Take a moment</h3><p>Look through your board, then mark your {currentSlotLabel} viewing.</p><div className="slot-row">{SLOTS.map(sl=>{const v=todayViews.find(x=>x.slot===sl.id);return <span key={sl.id} className={"slot-pill "+(v?"done":"")+(sl.id===currentSlot?" now":"")}>{sl.icon} {sl.label}{v?` ✓ ${timeLabel(v.at)} • ${v.synced?"☁ saved in Supabase":"device only"}`:""}</span>})}</div></div></div><div className="view-actions"><span className={"sound-status "+(soundStarted&&!muted?"on":"off")}>{soundStarted&&!muted?"● OM chanting ON":muted?"○ OM muted":"○ OM ready"}</span><Link className="calendar-link" href="/calendar">📅 Calendar</Link><button onClick={markViewed} disabled={syncing}>{syncing?"Saving…":viewedSlot?`✓ ${SLOTS.find(s=>s.id===currentSlot)!.label} done`:"I Saw My Vision Board"}</button></div>{message&&<div className="toast">{message}</div>}</section>
+  <section className="view-panel"><div className="view-copy"><div className="view-icon">👁</div><div><h3>Take a moment</h3><p>Look through your board, then mark your {currentSlotLabel} viewing.</p><div className="slot-row">{SLOTS.map(sl=>{const v=todayViews.find(x=>x.slot===sl.id);return <span key={sl.id} title={sl.hours} className={"slot-pill "+(v?"done":"")+(sl.id===currentSlot?" now":"")}>{sl.icon} {sl.label}{v?` ✓ ${timeLabel(v.at)} • ${v.synced?"☁ saved in Supabase":"device only"}`:""}</span>})}</div></div></div><div className="view-actions"><span className={"sound-status "+(soundStarted&&!muted?"on":"off")}>{soundStarted&&!muted?"● OM chanting ON":muted?"○ OM muted":"○ OM ready"}</span><Link className="calendar-link" href="/calendar">📅 Calendar</Link><button onClick={markViewed} disabled={syncing}>{syncing?"Saving…":viewedSlot?`✓ ${SLOTS.find(s=>s.id===currentSlot)!.label} done`:"I Saw My Vision Board"}</button></div>{message&&<div className="toast">{message}</div>}</section>
   {soundBlocked&&!soundStarted&&<div className="sound-hint">🔊 Tap anywhere on the board once to start the continuous OM chanting. Your default is sound ON.</div>}
   <SyncCode/>
   <footer><span>ॐ MY VISION BOARD</span><span>{supabase?"Cloud tracking enabled • Supabase":"Local tracking only • add Supabase environment variables"}</span><span>Small daily attention • Long-term direction</span></footer>

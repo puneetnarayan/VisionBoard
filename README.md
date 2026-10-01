@@ -9,7 +9,7 @@ A compact personal vision board built with Next.js, designed for Vercel.
 - Financial Freedom, Health & Lifestyle, Family & Happiness
 - OM symbol and browser-generated continuous OM-like meditation sound
 - Sound ON by default with mute/unmute control
-- "I Saw My Vision Board" tracker: 3 fixed daily slots (morning 5am-12pm, afternoon 12-5pm, evening 5pm-5am)
+- "I Saw My Vision Board" tracker: 3 fixed daily slots: morning 3:30am-11am, afternoon 11am-5pm, evening/night from 5pm. A day runs 3:30am to 3:30am, so views between 11pm and 3:30am count as that day's evening/night
 - Calendar view (/calendar) with Day, Week, Month and Year views
 - Weekly actions per life area: up to 3 editable, checkable actions per area each week (Mon–Sun), stored in `public.vision_board_actions`
 - Save labels: each view and action shows "☁ Saved in Supabase" only after the database confirmed the write, otherwise "device only"
