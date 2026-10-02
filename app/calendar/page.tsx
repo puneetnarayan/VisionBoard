@@ -170,8 +170,8 @@ export default function CalendarPage() {
       )}
 
       <div className="cal-legend">
-        {SLOTS.map((s) => <span key={s.id}>{s.icon} {s.label}</span>)}
-        <span>☁ = confirmed saved in Supabase</span><span className="legend-note">Coloured = done • faded = not done{mode === "year" ? " • darker square = more views that day" : ""}</span>
+        {SLOTS.map((s) => <span key={s.id}>{s.icon} {s.label} <small>{s.hours}</small></span>)}
+        <span>☁ = confirmed saved in Supabase</span><span className="legend-note">Dark border = done • faded = not done{mode === "year" ? " • darker square = more views that day" : ""}</span>
       </div>
     </main>
   );

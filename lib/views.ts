@@ -6,10 +6,10 @@ export type Slot = "morning" | "afternoon" | "evening";
 export type View = { date: string; slot: Slot; at: string; synced?: boolean };
 
 export const SLOTS: { id: Slot; label: string; icon: string; hours: string }[] = [
-  { id: "morning", label: "Morning", icon: "🌅", hours: "3:30 am – 11 am" },
-  { id: "afternoon", label: "Afternoon", icon: "☀️", hours: "11 am – 5 pm" },
+  { id: "morning", label: "Morning", icon: "🌅", hours: "3:30 AM - 11:00 AM" },
+  { id: "afternoon", label: "Afternoon", icon: "☀️", hours: "11:00 AM - 5:00 PM" },
   // Late views (11 pm – 3:30 am) also count here, as part of the day that is ending.
-  { id: "evening", label: "Evening/Night", icon: "🌙", hours: "5 pm – 11 pm" },
+  { id: "evening", label: "Evening/Night", icon: "🌙", hours: "5:00 PM - 11:00 PM" },
 ];
 export const DAILY_TARGET = SLOTS.length;
 

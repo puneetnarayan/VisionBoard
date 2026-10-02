@@ -36,3 +36,5 @@
 .sync-row button:disabled{opacity:.5;cursor:default}
 .sync-warn{color:#9a5b3c}
 .sync-note{font-weight:700}
+
+.slot-hours{display:block;margin-top:6px;font-size:11px;color:#6f6862}

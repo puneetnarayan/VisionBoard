@@ -22,13 +22,14 @@
 .day-block.today{box-shadow:0 0 0 2px #e9a98f}
 .day-num{font-size:12px;font-weight:800;color:#4a443e}
 .day-num small{display:block;font-size:10px;font-weight:700;color:#8a837b}
-.day-slots{display:flex;flex-wrap:wrap;gap:4px}
+.day-slots{display:flex;flex-wrap:wrap;gap:3px}
+.month-grid .day-slots{flex-wrap:nowrap}
 .week-grid .day-slots{flex-direction:column}
-.slot-chip{font-size:12px;border-radius:8px;padding:2px 5px;background:#f2f0ee;opacity:.35;white-space:nowrap}
-.slot-chip.done{opacity:1}
-.slot-chip.morning.done{background:#fde8c8}
-.slot-chip.afternoon.done{background:#dcecf9}
-.slot-chip.evening.done{background:#e6def7}
+.slot-chip{font-size:14px;line-height:1.2;border-radius:9px;padding:2px 4px;background:#f2f0ee;border:1.5px solid #e2ddd6;opacity:.6;filter:grayscale(.3);white-space:nowrap}
+.slot-chip.done{opacity:1;filter:saturate(1.35) contrast(1.1);border-width:2px;font-weight:700}
+.slot-chip.morning.done{background:#fde3b8;border-color:#b86a00}
+.slot-chip.afternoon.done{background:#cfe4f7;border-color:#1f609b}
+.slot-chip.evening.done{background:#ddd2f5;border-color:#5a3aa6}
 .day-view{display:grid;gap:10px;max-width:560px}
 .day-slot{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #ddd7d0;border-radius:14px;padding:14px 16px;opacity:.7}
 .day-slot.done{opacity:1;background:#e9f3ea;border-color:#b9d8bd}
@@ -52,6 +53,6 @@
  .week-grid .day-block{min-height:0;flex-direction:row;align-items:center;justify-content:space-between}
  .week-grid .day-slots{flex-direction:row}
  .day-block{min-height:60px;padding:5px}
- .month-grid .slot-chip{font-size:9px;padding:1px 2px}
+ .month-grid .slot-chip{font-size:12px;padding:2px 2px}
  .cal-nav strong{min-width:0;flex:1}
 }
