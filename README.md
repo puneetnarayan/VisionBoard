@@ -12,6 +12,8 @@ A compact personal vision board built with Next.js, designed for Vercel.
 - "I Saw My Vision Board" tracker: 3 fixed daily slots: morning 3:30am-11am, afternoon 11am-5pm, evening/night from 5pm. A day runs 3:30am to 3:30am, so views between 11pm and 3:30am count as that day's evening/night
 - Calendar view (/calendar) with Day, Week, Month and Year views
 - Weekly actions per life area: up to 3 editable, checkable actions per area each week (Mon–Sun), stored in `public.vision_board_actions`
+- Focus timer: default 10 minutes (5, 15 or 20 selectable). Each of the 5 cards is highlighted for 2 minutes, with a soft bell when it moves to the next card and three bells at the end. Start, pause, reset; the bell can be switched off
+- Status label in the header: "Supabase connected" only when the database answers a real request, otherwise "Supabase not connected"
 - Save labels: each view and action shows "☁ Saved in Supabase" only after the database confirmed the write, otherwise "device only"
 - Sync across devices: a private sync code (shown under "Sync across devices") lets a second device load the same views and actions
 - LocalStorage fallback
