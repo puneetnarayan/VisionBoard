@@ -7,6 +7,7 @@ import WeeklyActions from "./WeeklyActions";
 import SyncCode from "./SyncCode";
 import FocusTimer from "./FocusTimer";
 import SupabaseStatus from "./SupabaseStatus";
+import Hooponopono from "./Hooponopono";
 import { cloudConfigured, syncLabel } from "../lib/syncLabel";
 import { loadActions, loadLocalActions, newActionId, removeAction, saveLocalActions, syncAction, weekKey, type Action } from "../lib/actions";
 import { DAILY_TARGET, SLOTS, completeStreak, dateKey, groupByDate, loadLocalViews, loadViews, logicalNow, recordView, slotFor, timeLabel, type View } from "../lib/views";
@@ -23,6 +24,7 @@ export default function Home(){
  const [views,setViews]=useState<View[]>([]),[message,setMessage]=useState("");
  const [muted,setMuted]=useState(false),[soundStarted,setSoundStarted]=useState(false),[soundBlocked,setSoundBlocked]=useState(false),[syncing,setSyncing]=useState(false);
  const [actions,setActions]=useState<Action[]>([]);
+ const [mode,setMode]=useState<"board"|"hoo">("board");
  const [focusIndex,setFocusIndex]=useState<number|null>(null),[sessionDone,setSessionDone]=useState(false);
  const audioContextRef=useRef<AudioContext|null>(null),gainRef=useRef<GainNode|null>(null),timerRef=useRef<number|null>(null);
 
@@ -125,11 +127,15 @@ export default function Home(){
 
   <section className="hero"><div><p className="hero-kicker">ॐ • MY LIFE • MY DIRECTION</p><h2>Keep the important things<br/><em>in front of you.</em></h2><p className="hero-copy">A quiet place to see where you are going — especially the career growth and experiences you want to share with your wife.</p></div><div className="stats"><div><b>{todayViews.length}/{DAILY_TARGET}</b><span>views today</span></div><div><b>{streak}</b><span>days with 3/3 streak</span></div><div><b>{monthViews}</b><span>views this month</span></div><div><b>{weekDone}/{weekActions.length}</b><span>actions this week</span></div><div><b>{views.length}</b><span>total views</span></div></div></section>
 
+  <div className="mode-switch" role="group" aria-label="Choose view"><button type="button" aria-pressed={mode==="board"} className={mode==="board"?"active":""} onClick={()=>setMode("board")}>🖼 Vision Board</button><button type="button" aria-pressed={mode==="hoo"} className={mode==="hoo"?"active":""} onClick={()=>{setMode("hoo");setFocusIndex(null)}}>🌺 Hoʻoponopono</button></div>
+
+  {mode==="hoo"?<Hooponopono/>:<>
   <FocusTimer cards={visions.map(v=>({id:v.id,title:v.title,icon:v.icon}))} onFocus={i=>{setFocusIndex(i);if(i!==null)setSessionDone(false)}} onComplete={()=>{setSessionDone(true);setMessage("Session complete 🔔 — tap “I Saw My Vision Board”");window.setTimeout(()=>setMessage(""),6000)}}/>
 
   <section className="board">{visions.map((v,i)=><article key={v.id} id={"card-"+v.id} className={"vision "+v.tone+" "+(i<2?"priority":"")+(focusIndex!==null?(focusIndex===i?" focused":" dimmed"):"")}><div className="vision-label">{v.icon} {i<2?"PRIORITY":"LIFE AREA"} {i+1}</div><div className="vision-visual"><span>{v.visual}</span><small>{v.visualText}</small></div><h3>{v.title}</h3><p>{v.statement}</p><div className="cards">{v.cards.map(([title,icon,text])=><div className="mini-card" key={title}><div className="mini-icon">{icon}</div><div><strong>{title}</strong><span>{text}</span></div></div>)}</div><WeeklyActions actions={weekActions.filter(a=>a.area===v.id)} onAdd={t=>addAction(v.id,t)} onToggle={id=>patchAction(id,{done:!actions.find(a=>a.id===id)!.done})} onEdit={(id,t)=>patchAction(id,{text:t})} onDelete={deleteAction}/></article>)}</section>
 
   <section className="view-panel"><div className="view-copy"><div className="view-icon">👁</div><div><h3>Take a moment</h3><p>Look through your board, then mark your {currentSlotLabel} viewing.</p><div className="slot-row">{SLOTS.map(sl=>{const v=todayViews.find(x=>x.slot===sl.id);return <span key={sl.id} title={`${sl.label}: ${sl.hours}`} className={"slot-pill "+(v?"done":"")+(sl.id===currentSlot?" now":"")}>{sl.icon} {sl.label}{v?` ✓ ${timeLabel(v.at)} • ${v.synced?"☁ saved in Supabase":"device only"}`:""}</span>})}</div><small className="slot-hours">{SLOTS.map(sl=>`${sl.label} ${sl.hours}`).join("  •  ")}</small></div></div><div className="view-actions"><span className={"sound-status "+(soundStarted&&!muted?"on":"off")}>{soundStarted&&!muted?"● OM chanting ON":muted?"○ OM muted":"○ OM ready"}</span><Link className="calendar-link" href="/calendar">📅 Calendar</Link><button className={sessionDone&&!viewedSlot?"pulse":""} onClick={markViewed} disabled={syncing}>{syncing?"Saving…":viewedSlot?`✓ ${SLOTS.find(s=>s.id===currentSlot)!.label} done`:"I Saw My Vision Board"}</button></div>{message&&<div className="toast">{message}</div>}</section>
+  </>}
   {soundBlocked&&!soundStarted&&<div className="sound-hint">🔊 Tap anywhere on the board once to start the continuous OM chanting. Your default is sound ON.</div>}
   <SyncCode/>
   <footer><span>ॐ MY VISION BOARD</span><span>Small daily attention • Long-term direction</span></footer>
