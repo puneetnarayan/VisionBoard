@@ -8,6 +8,11 @@ const PARTIALS = [
 ];
 
 let ctx: AudioContext | null = null;
+// 0-100 from the volume slider; 70 is the original loudness.
+let volume = 70;
+export const DEFAULT_VOLUME = 70;
+export const volumeScale = (v: number) => v / DEFAULT_VOLUME;
+export function setBellVolume(v: number) { volume = Math.min(100, Math.max(0, v)); }
 
 // Call from a click handler so the browser allows audio to start.
 export function prepareBell() {
@@ -25,7 +30,7 @@ export function prepareBell() {
 function strike(at: number, base: number, level: number) {
   if (!ctx) return;
   const master = ctx.createGain();
-  master.gain.value = level;
+  master.gain.value = level * volumeScale(volume);
   const soften = ctx.createBiquadFilter();
   soften.type = "lowpass";
   soften.frequency.value = 5200;

@@ -8,6 +8,8 @@ import SyncCode from "./SyncCode";
 import FocusTimer from "./FocusTimer";
 import SupabaseStatus from "./SupabaseStatus";
 import Hooponopono from "./Hooponopono";
+import SoundControls, { loadVolumes } from "./SoundControls";
+import { setBellVolume, volumeScale } from "../lib/bell";
 import { cloudConfigured, syncLabel } from "../lib/syncLabel";
 import { loadActions, loadLocalActions, newActionId, removeAction, saveLocalActions, syncAction, weekKey, type Action } from "../lib/actions";
 import { DAILY_TARGET, SLOTS, completeStreak, dateKey, groupByDate, loadLocalViews, loadViews, logicalNow, recordView, slotFor, timeLabel, type View } from "../lib/views";
@@ -24,8 +26,11 @@ export default function Home(){
  const [views,setViews]=useState<View[]>([]),[message,setMessage]=useState("");
  const [muted,setMuted]=useState(false),[soundStarted,setSoundStarted]=useState(false),[soundBlocked,setSoundBlocked]=useState(false),[syncing,setSyncing]=useState(false);
  const [actions,setActions]=useState<Action[]>([]);
+ const [omVolume,setOmVolume]=useState(70),[bellVolume,setBellVol]=useState(70);
+ const volGainRef=useRef<GainNode|null>(null);
  const [mode,setMode]=useState<"board"|"hoo">("board");
  const [focusIndex,setFocusIndex]=useState<number|null>(null),[sessionDone,setSessionDone]=useState(false);
+ const omVolumeRef=useRef(70);
  const audioContextRef=useRef<AudioContext|null>(null),gainRef=useRef<GainNode|null>(null),timerRef=useRef<number|null>(null);
 
  const startOm=async()=>{
@@ -35,7 +40,7 @@ export default function Home(){
        const Ctx=window.AudioContext||(window as typeof window & {webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
        if(!Ctx)return;
        const ctx=new Ctx(); audioContextRef.current=ctx;
-       const master=ctx.createGain(); master.gain.value=muted?0:0.11; master.connect(ctx.destination); gainRef.current=master;
+       const master=ctx.createGain(); master.gain.value=muted?0:0.11; const vol=ctx.createGain(); vol.gain.value=volumeScale(omVolumeRef.current); master.connect(vol); vol.connect(ctx.destination); gainRef.current=master; volGainRef.current=vol;
        [68.05,136.1,272.2,408.3].forEach((freq,index)=>{
          const osc=ctx.createOscillator(),g=ctx.createGain();
          osc.type=index===0?"sine":"triangle"; osc.frequency.value=freq; g.gain.value=index===0?.08:.025/index;
@@ -61,6 +66,7 @@ export default function Home(){
 
  useEffect(()=>{
    let active=true;
+   const saved=loadVolumes();omVolumeRef.current=saved.om;setOmVolume(saved.om);setBellVol(saved.bell);setBellVolume(saved.bell);
    setViews(loadLocalViews());
    setActions(loadLocalActions());
    loadActions().then(a=>{if(active)setActions(a)}).catch(()=>{});
@@ -71,6 +77,10 @@ export default function Home(){
    return()=>{active=false;window.clearTimeout(attempt);window.removeEventListener("pointerdown",onGesture);if(timerRef.current)window.clearInterval(timerRef.current);void audioContextRef.current?.close()};
  },[]);
 
+ useEffect(()=>{
+   omVolumeRef.current=omVolume;
+   if(volGainRef.current)volGainRef.current.gain.setTargetAtTime(volumeScale(omVolume),volGainRef.current.context.currentTime,.04);
+ },[omVolume]);
  useEffect(()=>{
    if(gainRef.current){
      gainRef.current.gain.setTargetAtTime(muted?0:.11,gainRef.current.context.currentTime,.04);
@@ -124,6 +134,8 @@ export default function Home(){
    <div className="brand"><Image src="/om.svg" alt="Om" width={62} height={62} priority/><div><div className="eyebrow">PERSONAL VISION BOARD</div><h1>See it. Feel it. <span>Work towards it.</span></h1></div></div>
    <div className="header-actions"><SupabaseStatus/><button className={"sound-button "+(muted?"muted":"")} onClick={(e)=>{e.stopPropagation();setMuted(x=>!x);if(muted)void startOm()}} aria-label={muted?"Unmute OM chanting":"Mute OM chanting"}>{muted?"🔇":"🔊"} {muted?"Unmute OM":"Mute OM"}</button><div className="datebox"><strong>{mounted?now.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}):""}</strong><small>{todayViews.length>=DAILY_TARGET?"✓ All 3 views done":`${todayViews.length}/${DAILY_TARGET} views today`}</small></div></div>
   </header>
+
+  <SoundControls om={omVolume} bell={bellVolume} onOm={v=>{setOmVolume(v);if(v>0&&!soundStarted)void startOm()}} onBell={v=>{setBellVol(v);setBellVolume(v)}}/>
 
   <section className="hero"><div><p className="hero-kicker">ॐ • MY LIFE • MY DIRECTION</p><h2>Keep the important things<br/><em>in front of you.</em></h2><p className="hero-copy">A quiet place to see where you are going — especially the career growth and experiences you want to share with your wife.</p></div><div className="stats"><div><b>{todayViews.length}/{DAILY_TARGET}</b><span>views today</span></div><div><b>{streak}</b><span>days with 3/3 streak</span></div><div><b>{monthViews}</b><span>views this month</span></div><div><b>{weekDone}/{weekActions.length}</b><span>actions this week</span></div><div><b>{views.length}</b><span>total views</span></div></div></section>
 
