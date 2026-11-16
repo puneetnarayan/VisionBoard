@@ -1,7 +1,6 @@
 'use client';
 import { useState } from "react";
-import { syncLabel } from "../lib/syncLabel";
-import { MAX_ACTIONS_PER_AREA, type Action } from "../lib/actions";
+import type { Action } from "../lib/actions";
 
 type Props = {
   actions: Action[];
@@ -15,7 +14,9 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const done = actions.filter((a) => a.done).length;
-  const label = syncLabel(actions.every((a) => a.synced));
+  // Completed actions sink below open ones; Array.sort is stable, so each group keeps its order.
+  const sorted = [...actions].sort((a, b) => Number(a.done) - Number(b.done));
+  const allSynced = actions.every((a) => a.synced);
 
   function submit() {
     const text = draft.trim();
@@ -33,11 +34,11 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
   return (
     <div className="weekly">
       <div className="weekly-head">
-        <strong>This week</strong>
+        <strong>Actions</strong>
         <span>{actions.length ? `${done} of ${actions.length} done` : "No actions yet"}</span>
       </div>
       <ul>
-        {actions.map((a) => (
+        {sorted.map((a) => (
           <li key={a.id} className={a.done ? "done" : ""}>
             <input type="checkbox" checked={a.done} onChange={() => onToggle(a.id)} aria-label={`Mark done: ${a.text}`} />
             {editing?.id === a.id ? (
@@ -58,19 +59,17 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
           </li>
         ))}
       </ul>
-      {actions.length > 0 && <div className={"sync-label " + label.state}>{label.text}</div>}
-      {actions.length < MAX_ACTIONS_PER_AREA && (
-        <div className="weekly-add">
-          <input
-            value={draft}
-            maxLength={200}
-            placeholder="Add one action for this week…"
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          />
-          <button type="button" onClick={submit} disabled={!draft.trim()}>Add</button>
-        </div>
-      )}
+      {actions.length > 0 && <div className={"sync-label " + (allSynced ? "synced" : "local")}>{allSynced ? "☁ Saved in Neon" : "⚠ This device only — not in Neon"}</div>}
+      <div className="weekly-add">
+        <input
+          value={draft}
+          maxLength={200}
+          placeholder="Add an action…"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+        />
+        <button type="button" onClick={submit} disabled={!draft.trim()}>Add</button>
+      </div>
     </div>
   );
 }

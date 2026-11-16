@@ -1,26 +1,21 @@
-import { supabase } from "./supabase";
-import { dateKey, visitorId } from "./views";
+import { getVisitorId } from "./identity";
 
-// `synced` is in-memory only: true once the cloud has confirmed the latest version of this action.
-export type Action = { id: string; area: string; week: string; text: string; done: boolean; synced?: boolean };
+// Actions are permanent items per life area (no week). `synced` is in-memory only:
+// true once Neon has confirmed the latest version of this action.
+export type Action = { id: string; area: string; text: string; done: boolean; synced?: boolean };
 
-export const MAX_ACTIONS_PER_AREA = 3;
 const LOCAL_KEY = "visionboard_actions_v1";
-
-// Monday of the week containing d, as YYYY-MM-DD.
-export function weekKey(d: Date) {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
-  return dateKey(x);
-}
+const API = "/api/actions";
 
 export function newActionId() {
   return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `a-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+// Older versions stored a `week` field; it is simply ignored now.
 export function loadLocalActions(): Action[] {
   try {
-    return JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
+    const raw = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
+    return Array.isArray(raw) ? raw.map(({ id, area, text, done }) => ({ id, area, text, done: !!done })) : [];
   } catch {
     return [];
   }
@@ -28,50 +23,52 @@ export function loadLocalActions(): Action[] {
 
 export function saveLocalActions(actions: Action[]) {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(actions.map(({ id, area, week, text, done }) => ({ id, area, week, text, done }))));
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(actions.map(({ id, area, text, done }) => ({ id, area, text, done }))));
   } catch {}
 }
 
-const toRow = (a: Action) => ({
-  visitor_id: visitorId(),
-  client_id: a.id,
-  area: a.area,
-  week_start: a.week,
-  text: a.text,
-  done: a.done,
-  updated_at: new Date().toISOString(),
-});
+const headers = () => ({ "content-type": "application/json", "x-visitor-id": getVisitorId() });
+const payload = (a: Action) => ({ id: a.id, area: a.area, text: a.text, done: a.done });
+
+// Resolves true only when Neon confirmed the write.
+async function put(list: Action[]) {
+  try {
+    for (let i = 0; i < list.length; i += 200) {
+      const res = await fetch(API, { method: "PUT", headers: headers(), body: JSON.stringify({ actions: list.slice(i, i + 200).map(payload) }) });
+      if (!res.ok) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Cloud rows win for actions present in both places; local-only actions are pushed to the cloud.
 export async function loadActions(): Promise<Action[]> {
   const local = loadLocalActions();
-  if (!supabase) return local;
-  const { data, error } = await supabase
-    .from("vision_board_actions")
-    .select("client_id,area,week_start,text,done")
-    .eq("visitor_id", visitorId());
-  if (error || !data) return local;
-  const cloud: Action[] = data.map((r) => ({ id: r.client_id, area: r.area, week: r.week_start, text: r.text, done: r.done, synced: true }));
-  const cloudIds = new Set(cloud.map((a) => a.id));
-  const localOnly = local.filter((a) => !cloudIds.has(a.id));
-  if (localOnly.length) {
-    const { error: pushError } = await supabase.from("vision_board_actions").upsert(localOnly.map(toRow), { onConflict: "visitor_id,client_id" });
-    if (!pushError) localOnly.forEach((a) => (a.synced = true));
+  try {
+    const res = await fetch(API, { headers: headers(), cache: "no-store" });
+    if (!res.ok) return local;
+    const { actions } = (await res.json()) as { actions: { client_id: string; area: string; text: string; done: boolean }[] };
+    const cloud: Action[] = actions.map((r) => ({ id: r.client_id, area: r.area, text: r.text, done: r.done, synced: true }));
+    const cloudIds = new Set(cloud.map((a) => a.id));
+    const localOnly = local.filter((a) => !cloudIds.has(a.id));
+    if (localOnly.length && (await put(localOnly))) localOnly.forEach((a) => (a.synced = true));
+    const merged = [...cloud, ...localOnly];
+    saveLocalActions(merged);
+    return merged;
+  } catch {
+    return local;
   }
-  const merged = [...cloud, ...localOnly];
-  saveLocalActions(merged);
-  return merged;
 }
 
-// Resolves true only when Supabase confirmed the write; false (without error) when no cloud client exists.
-export async function syncAction(a: Action) {
-  if (!supabase) return false;
-  const { error } = await supabase.from("vision_board_actions").upsert(toRow(a), { onConflict: "visitor_id,client_id" });
-  return !error;
-}
+export const syncAction = (a: Action) => put([a]);
 
 export async function removeAction(id: string) {
-  if (!supabase) return true; // nothing to delete in the cloud
-  const { error } = await supabase.from("vision_board_actions").delete().eq("visitor_id", visitorId()).eq("client_id", id);
-  return !error;
+  try {
+    const res = await fetch(`${API}?id=${encodeURIComponent(id)}`, { method: "DELETE", headers: headers() });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

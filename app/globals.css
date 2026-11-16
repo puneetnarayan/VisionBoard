@@ -43,6 +43,11 @@
 .db-status i{width:8px;height:8px;border-radius:50%;background:#b8b2ab}
 .db-status.connected{color:#2f5a3a;border-color:#b9d8bd;background:#eef6ef}
 .db-status.connected i{background:#3c9a56}
+.db-status.neon.connected{color:#2f5a3a;border-color:#b9d8bd;background:#eef6ef}
+.db-status.neon.connected i{background:#3c9a56}
+.db-status.supabase.connected{color:#254f7a;border-color:#b3cde6;background:#ecf3fa}
+.db-status.supabase.connected i{background:#3b82c4}
+.db-statuses{display:inline-flex;flex-direction:column;gap:5px}
 .db-status.not-connected{color:#9a3c2c;border-color:#e3b7ad;background:#fbefec}
 .db-status.not-connected i{background:#c9503a}
 
