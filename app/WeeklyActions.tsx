@@ -1,7 +1,6 @@
 'use client';
 import { useState } from "react";
-import { syncLabel } from "../lib/syncLabel";
-import { MAX_ACTIONS_PER_AREA, type Action } from "../lib/actions";
+import type { Action } from "../lib/actions";
 
 type Props = {
   actions: Action[];
@@ -15,7 +14,7 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const done = actions.filter((a) => a.done).length;
-  const label = syncLabel(actions.every((a) => a.synced));
+  const allSynced = actions.every((a) => a.synced);
 
   function submit() {
     const text = draft.trim();
@@ -33,7 +32,7 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
   return (
     <div className="weekly">
       <div className="weekly-head">
-        <strong>This week</strong>
+        <strong>Actions</strong>
         <span>{actions.length ? `${done} of ${actions.length} done` : "No actions yet"}</span>
       </div>
       <ul>
@@ -58,19 +57,17 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
           </li>
         ))}
       </ul>
-      {actions.length > 0 && <div className={"sync-label " + label.state}>{label.text}</div>}
-      {actions.length < MAX_ACTIONS_PER_AREA && (
-        <div className="weekly-add">
-          <input
-            value={draft}
-            maxLength={200}
-            placeholder="Add one action for this week…"
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          />
-          <button type="button" onClick={submit} disabled={!draft.trim()}>Add</button>
-        </div>
-      )}
+      {actions.length > 0 && <div className={"sync-label " + (allSynced ? "synced" : "local")}>{allSynced ? "☁ Saved in Neon" : "⚠ This device only — not in Neon"}</div>}
+      <div className="weekly-add">
+        <input
+          value={draft}
+          maxLength={200}
+          placeholder="Add an action…"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+        />
+        <button type="button" onClick={submit} disabled={!draft.trim()}>Add</button>
+      </div>
     </div>
   );
 }
