@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase";
 import WeeklyActions from "./WeeklyActions";
 import SyncCode from "./SyncCode";
 import FocusTimer from "./FocusTimer";
-import SupabaseStatus from "./SupabaseStatus";
+import DbStatus from "./DbStatus";
 import Hooponopono from "./Hooponopono";
 import SoundControls, { loadVolumes } from "./SoundControls";
 import { setBellVolume, volumeScale } from "../lib/bell";
@@ -130,7 +130,7 @@ export default function Home(){
  return <main className="page" onClick={()=>{if(!soundStarted)void startOm()}}>
   <header className="topbar">
    <div className="brand"><Image src="/om.svg" alt="Om" width={62} height={62} priority/><div><div className="eyebrow">PERSONAL VISION BOARD</div><h1>See it. Feel it. <span>Work towards it.</span></h1></div></div>
-   <div className="header-actions"><SupabaseStatus/><button className={"sound-button "+(muted?"muted":"")} onClick={(e)=>{e.stopPropagation();setMuted(x=>!x);if(muted)void startOm()}} aria-label={muted?"Unmute OM chanting":"Mute OM chanting"}>{muted?"🔇":"🔊"} {muted?"Unmute OM":"Mute OM"}</button><div className="datebox"><strong>{mounted?now.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}):""}</strong><small>{todayViews.length>=DAILY_TARGET?"✓ All 3 views done":`${todayViews.length}/${DAILY_TARGET} views today`}</small></div></div>
+   <div className="header-actions"><DbStatus/><button className={"sound-button "+(muted?"muted":"")} onClick={(e)=>{e.stopPropagation();setMuted(x=>!x);if(muted)void startOm()}} aria-label={muted?"Unmute OM chanting":"Mute OM chanting"}>{muted?"🔇":"🔊"} {muted?"Unmute OM":"Mute OM"}</button><div className="datebox"><strong>{mounted?now.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}):""}</strong><small>{todayViews.length>=DAILY_TARGET?"✓ All 3 views done":`${todayViews.length}/${DAILY_TARGET} views today`}</small></div></div>
   </header>
 
   <SoundControls om={omVolume} bell={bellVolume} onOm={v=>{setOmVolume(v);if(v>0&&!soundStarted)void startOm()}} onBell={v=>{setBellVol(v);setBellVolume(v)}}/>

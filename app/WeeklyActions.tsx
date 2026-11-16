@@ -14,6 +14,8 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const done = actions.filter((a) => a.done).length;
+  // Completed actions sink below open ones; Array.sort is stable, so each group keeps its order.
+  const sorted = [...actions].sort((a, b) => Number(a.done) - Number(b.done));
   const allSynced = actions.every((a) => a.synced);
 
   function submit() {
@@ -36,7 +38,7 @@ export default function WeeklyActions({ actions, onAdd, onToggle, onEdit, onDele
         <span>{actions.length ? `${done} of ${actions.length} done` : "No actions yet"}</span>
       </div>
       <ul>
-        {actions.map((a) => (
+        {sorted.map((a) => (
           <li key={a.id} className={a.done ? "done" : ""}>
             <input type="checkbox" checked={a.done} onChange={() => onToggle(a.id)} aria-label={`Mark done: ${a.text}`} />
             {editing?.id === a.id ? (

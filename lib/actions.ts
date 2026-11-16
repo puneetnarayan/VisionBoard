@@ -33,8 +33,11 @@ const payload = (a: Action) => ({ id: a.id, area: a.area, text: a.text, done: a.
 // Resolves true only when Neon confirmed the write.
 async function put(list: Action[]) {
   try {
-    const res = await fetch(API, { method: "PUT", headers: headers(), body: JSON.stringify({ actions: list.map(payload) }) });
-    return res.ok;
+    for (let i = 0; i < list.length; i += 200) {
+      const res = await fetch(API, { method: "PUT", headers: headers(), body: JSON.stringify({ actions: list.slice(i, i + 200).map(payload) }) });
+      if (!res.ok) return false;
+    }
+    return true;
   } catch {
     return false;
   }
